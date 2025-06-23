@@ -89,9 +89,21 @@ jobs:
       id: tag_name
       run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-    - name: Rename APK file
+    - name: Find and rename APK file
       run: |
-        cp app/build/outputs/apk/release/app-release.apk AndroidProxyToggle.apk
+        echo "Listing build output directories:"
+        find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+        ls -la app/build/outputs/apk/release/ || echo "Release directory not found"
+        
+        # Find the actual APK file
+        APK_FILE=$(find app/build/outputs/apk/release/ -name "*.apk" | head -1)
+        if [ -f "$APK_FILE" ]; then
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" AndroidProxyToggle.apk
+        else
+          echo "No APK file found in release directory"
+          exit 1
+        fi
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
