@@ -88,22 +88,22 @@ jobs:
     - name: Check Signing Secrets
       id: check_secrets
       run: |
-        if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] && [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ] && [ -n "${{ secrets.KEY_ALIAS }}" ] && [ -n "${{ secrets.KEY_PASSWORD }}" ]; then
+        if [ -n "${{ secrets.KEY_JKS }}" ] && [ -n "${{ secrets.ANDROID_STORE_PASSWORD }}" ] && [ -n "${{ secrets.ALIAS }}" ] && [ -n "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
           echo "✅ 所有签名密钥已配置，将构建签名APK"
           echo "SIGNING_ENABLED=true" >> $GITHUB_OUTPUT
         else
           echo "⚠️ 签名密钥未完整配置，将构建未签名APK"
           echo "缺失的secrets:"
-          [ -z "${{ secrets.KEYSTORE_BASE64 }}" ] && echo "  - KEYSTORE_BASE64"
-          [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ] && echo "  - KEYSTORE_PASSWORD"
-          [ -z "${{ secrets.KEY_ALIAS }}" ] && echo "  - KEY_ALIAS"
-          [ -z "${{ secrets.KEY_PASSWORD }}" ] && echo "  - KEY_PASSWORD"
+          [ -z "${{ secrets.KEY_JKS }}" ] && echo "  - KEY_JKS"
+          [ -z "${{ secrets.ANDROID_STORE_PASSWORD }}" ] && echo "  - ANDROID_STORE_PASSWORD"
+          [ -z "${{ secrets.ALIAS }}" ] && echo "  - ALIAS"
+          [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ] && echo "  - ANDROID_KEY_PASSWORD"
           echo "SIGNING_ENABLED=false" >> $GITHUB_OUTPUT
         fi
 
     - name: Setup Android Keystore
       run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+        echo "${{ secrets.KEY_JKS }}" | base64 -d > keystore.jks
         echo "🔑 密钥文件已准备就绪"
       if: steps.check_secrets.outputs.SIGNING_ENABLED == 'true'
 
@@ -112,9 +112,9 @@ jobs:
         echo "🔨 开始构建签名APK..."
         ./gradlew assembleRelease -x test \
           -Pandroid.injected.signing.store.file=keystore.jks \
-          -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
-          -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
-          -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+          -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_STORE_PASSWORD }}" \
+          -Pandroid.injected.signing.key.alias="${{ secrets.ALIAS }}" \
+          -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
         echo "✅ 签名APK构建完成"
       if: steps.check_secrets.outputs.SIGNING_ENABLED == 'true'
 
