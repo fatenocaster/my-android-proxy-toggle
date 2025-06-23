@@ -26,7 +26,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -46,7 +46,7 @@ jobs:
       run: ./gradlew assembleDebug
 
     - name: Upload APK artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: debug-apk
         path: app/build/outputs/apk/debug/*.apk
@@ -79,7 +79,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -95,14 +95,17 @@ jobs:
       id: tag_name
       run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+    - name: Rename APK file
+      run: |
+        cp app/build/outputs/apk/release/app-release.apk ProxyToggle.apk
+
+    - name: Create Release and Upload APK
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.tag_name.outputs.TAG_NAME }}
-        release_name: Release ${{ steps.tag_name.outputs.TAG_NAME }}
+        name: Release ${{ steps.tag_name.outputs.TAG_NAME }}
         body: |
           🚀 Android Proxy Toggle ${{ steps.tag_name.outputs.TAG_NAME }}
           
@@ -116,13 +119,5 @@ jobs:
           这是一个Android代理切换应用的发布版本
         draft: false
         prerelease: false
-
-    - name: Upload Release APK
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/apk/release/app-release.apk
-        asset_name: android-proxy-toggle-${{ steps.tag_name.outputs.TAG_NAME }}.apk
-        asset_content_type: application/vnd.android.package-archive
+        files: |
+          AndroidProxyToggle.apk
