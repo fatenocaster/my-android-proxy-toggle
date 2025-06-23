@@ -1,31 +1,128 @@
-name: PR Check
+name: Android CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
+    tags:
+      - 'v*'  # 匹配以v开头的tag，如v1.0.0
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
-  pr-check:
-
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     
-    - name: Set up JDK 11
-      uses: actions/setup-java@v1
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
       with:
-        java-version: 11
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
 
     - name: Run Unit Tests
-      run: ./gradlew jacocoTestDebugUnitTestReport
+      run: ./gradlew test --stacktrace
 
-    - name: Upload Report to Codecov
-      uses: codecov/codecov-action@v1
+    - name: Generate Test Report
+      run: ./gradlew jacocoTestDebugUnitTestReport
+      continue-on-error: true
+
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v3
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./app/build/reports/jacoco/jacocoTestDebugUnitTestReport/jacocoTestDebugUnitTestReport.xml
-        flags: unittests
+        name: debug-apk
+        path: app/build/outputs/apk/debug/*.apk
+
+    # 可选：如果你设置了Codecov token，可以取消注释下面的步骤
+    # - name: Upload Report to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     token: ${{ secrets.CODECOV_TOKEN }}
+    #     file: ./app/build/reports/jacoco/jacocoTestDebugUnitTestReport/jacocoTestDebugUnitTestReport.xml
+    #     flags: unittests
+
+  # GitHub Release Job - 只在推送v开头的tag时运行
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
+
+    - name: Get tag name
+      id: tag_name
+      run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag_name.outputs.TAG_NAME }}
+        release_name: Release ${{ steps.tag_name.outputs.TAG_NAME }}
+        body: |
+          🚀 Android Proxy Toggle ${{ steps.tag_name.outputs.TAG_NAME }}
+          
+          ## 📱 下载APK
+          请下载下方的APK文件进行安装
+          
+          ## 🔄 更新内容
+          - 更新到版本 ${{ steps.tag_name.outputs.TAG_NAME }}
+          
+          ## 📝 说明
+          这是一个Android代理切换应用的发布版本
+        draft: false
+        prerelease: false
+
+    - name: Upload Release APK
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/apk/release/app-release.apk
+        asset_name: android-proxy-toggle-${{ steps.tag_name.outputs.TAG_NAME }}.apk
+        asset_content_type: application/vnd.android.package-archive
