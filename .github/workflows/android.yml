@@ -110,8 +110,11 @@ jobs:
     - name: Build Signed Release APK
       run: |
         echo "🔨 开始构建签名APK..."
+        KEYSTORE_PATH=$(pwd)/keystore.jks
+        echo "密钥文件路径: $KEYSTORE_PATH"
+        ls -la keystore.jks
         ./gradlew assembleRelease -x test \
-          -Pandroid.injected.signing.store.file=keystore.jks \
+          -Pandroid.injected.signing.store.file="$KEYSTORE_PATH" \
           -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_STORE_PASSWORD }}" \
           -Pandroid.injected.signing.key.alias="${{ secrets.ALIAS }}" \
           -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
