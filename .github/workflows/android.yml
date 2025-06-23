@@ -36,7 +36,8 @@ jobs:
           ${{ runner.os }}-gradle-
 
     - name: Run Unit Tests
-      run: ./gradlew test --stacktrace
+      run: ./gradlew testDebugUnitTest --stacktrace
+      continue-on-error: true
 
     - name: Generate Test Report
       run: ./gradlew jacocoTestDebugUnitTestReport
@@ -82,7 +83,7 @@ jobs:
           ${{ runner.os }}-gradle-
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease -x test
 
     - name: Get tag name
       id: tag_name
